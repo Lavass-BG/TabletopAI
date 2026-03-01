@@ -1,0 +1,2 @@
+# TabletopAI
+Társasjáték AI asszisztens
