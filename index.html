@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Társasjáték AI Asszisztens</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+–bg: #0f0e0c;
+–surface: #1a1814;
+–surface2: #242118;
+–border: #3a3528;
+–accent: #d4a843;
+–accent2: #e8c56a;
+–text: #f0ead8;
+–text-dim: #8a8070;
+–red: #c0392b;
+–green: #27ae60;
+}
+
+- { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: var(–bg);
+color: var(–text);
+font-family: ‘DM Sans’, sans-serif;
+min-height: 100vh;
+overflow-x: hidden;
+}
+
+/* Background texture */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image:
+radial-gradient(ellipse at 20% 50%, rgba(212,168,67,0.04) 0%, transparent 60%),
+radial-gradient(ellipse at 80% 20%, rgba(212,168,67,0.03) 0%, transparent 50%);
+pointer-events: none;
+z-index: 0;
+}
+
+.container {
+max-width: 900px;
+margin: 0 auto;
+padding: 0 16px;
+position: relative;
+z-index: 1;
+}
+
+/* Header */
+header {
+padding: 28px 0 0;
+text-align: center;
+}
+
+.logo {
+font-family: ‘Playfair Display’, serif;
+font-size: clamp(24px, 5vw, 36px);
+font-weight: 900;
+color: var(–accent);
+letter-spacing: 1px;
+line-height: 1.1;
+}
+
+.logo span { color: var(–text); }
+
+.tagline {
+font-size: 13px;
+color: var(–text-dim);
+margin-top: 6px;
+letter-spacing: 2px;
+text-transform: uppercase;
+}
+
+/* API Key Bar */
+.api-bar {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 14px 18px;
+margin: 20px 0 0;
+display: flex;
+gap: 10px;
+align-items: center;
+flex-wrap: wrap;
+}
+
+.api-bar label {
+font-size: 12px;
+color: var(–text-dim);
+text-transform: uppercase;
+letter-spacing: 1px;
+white-space: nowrap;
+}
+
+.api-bar input {
+flex: 1;
+background: var(–bg);
+border: 1px solid var(–border);
+border-radius: 8px;
+padding: 8px 12px;
+color: var(–text);
+font-family: monospace;
+font-size: 13px;
+min-width: 0;
+}
+
+.api-bar input:focus { outline: 1px solid var(–accent); }
+
+.btn-save {
+background: var(–accent);
+color: #000;
+border: none;
+border-radius: 8px;
+padding: 8px 16px;
+font-weight: 500;
+font-size: 13px;
+cursor: pointer;
+white-space: nowrap;
+}
+
+.api-status {
+font-size: 12px;
+padding: 4px 10px;
+border-radius: 20px;
+font-weight: 500;
+}
+.api-status.ok { background: rgba(39,174,96,0.15); color: var(–green); }
+.api-status.missing { background: rgba(192,57,43,0.15); color: var(–red); }
+
+/* Tabs */
+.tabs {
+display: flex;
+gap: 4px;
+margin: 24px 0 0;
+border-bottom: 1px solid var(–border);
+padding-bottom: 0;
+}
+
+.tab {
+padding: 10px 18px;
+border: none;
+background: none;
+color: var(–text-dim);
+font-family: ‘DM Sans’, sans-serif;
+font-size: 14px;
+cursor: pointer;
+border-bottom: 2px solid transparent;
+margin-bottom: -1px;
+transition: all 0.2s;
+white-space: nowrap;
+}
+
+.tab:hover { color: var(–text); }
+.tab.active { color: var(–accent); border-bottom-color: var(–accent); }
+
+/* Panel */
+.panel { display: none; padding: 24px 0; }
+.panel.active { display: block; }
+
+/* Upload area */
+.upload-zone {
+border: 2px dashed var(–border);
+border-radius: 16px;
+padding: 40px 24px;
+text-align: center;
+cursor: pointer;
+transition: all 0.2s;
+background: var(–surface);
+}
+
+.upload-zone:hover, .upload-zone.drag {
+border-color: var(–accent);
+background: rgba(212,168,67,0.04);
+}
+
+.upload-icon { font-size: 40px; margin-bottom: 12px; }
+.upload-title { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+.upload-sub { font-size: 13px; color: var(–text-dim); }
+
+.upload-zone input[type=file] { display: none; }
+
+.uploaded-file {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 14px 18px;
+display: flex;
+align-items: center;
+gap: 12px;
+margin-top: 12px;
+}
+
+.file-icon { font-size: 24px; }
+.file-info { flex: 1; }
+.file-name { font-size: 14px; font-weight: 500; }
+.file-size { font-size: 12px; color: var(–text-dim); }
+
+.btn-remove {
+background: none;
+border: 1px solid var(–border);
+border-radius: 8px;
+padding: 6px 12px;
+color: var(–text-dim);
+cursor: pointer;
+font-size: 12px;
+}
+
+/* Chat area */
+.chat-area {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 16px;
+min-height: 300px;
+max-height: 400px;
+overflow-y: auto;
+padding: 16px;
+margin-top: 16px;
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+
+.chat-area::-webkit-scrollbar { width: 4px; }
+.chat-area::-webkit-scrollbar-track { background: transparent; }
+.chat-area::-webkit-scrollbar-thumb { background: var(–border); border-radius: 2px; }
+
+.message {
+max-width: 85%;
+padding: 10px 14px;
+border-radius: 12px;
+font-size: 14px;
+line-height: 1.5;
+animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.message.ai {
+background: var(–surface2);
+border: 1px solid var(–border);
+align-self: flex-start;
+border-bottom-left-radius: 4px;
+}
+
+.message.user {
+background: rgba(212,168,67,0.12);
+border: 1px solid rgba(212,168,67,0.2);
+align-self: flex-end;
+border-bottom-right-radius: 4px;
+}
+
+.message .sender {
+font-size: 11px;
+font-weight: 500;
+text-transform: uppercase;
+letter-spacing: 1px;
+margin-bottom: 4px;
+color: var(–text-dim);
+}
+
+.message.ai .sender { color: var(–accent); }
+
+.empty-chat {
+text-align: center;
+color: var(–text-dim);
+font-size: 14px;
+margin: auto;
+padding: 40px 0;
+}
+
+.empty-chat .big { font-size: 36px; margin-bottom: 8px; }
+
+/* Input row */
+.input-row {
+display: flex;
+gap: 8px;
+margin-top: 12px;
+align-items: flex-end;
+}
+
+.input-row textarea {
+flex: 1;
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 12px 14px;
+color: var(–text);
+font-family: ‘DM Sans’, sans-serif;
+font-size: 14px;
+resize: none;
+min-height: 46px;
+max-height: 120px;
+line-height: 1.4;
+}
+
+.input-row textarea:focus { outline: 1px solid var(–accent); }
+.input-row textarea::placeholder { color: var(–text-dim); }
+
+.btn-send {
+background: var(–accent);
+color: #000;
+border: none;
+border-radius: 12px;
+width: 46px;
+height: 46px;
+font-size: 18px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: background 0.2s;
+flex-shrink: 0;
+}
+
+.btn-send:hover { background: var(–accent2); }
+.btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Voice button */
+.btn-voice {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 12px;
+width: 46px;
+height: 46px;
+font-size: 20px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.2s;
+flex-shrink: 0;
+}
+
+.btn-voice:hover { border-color: var(–accent); }
+.btn-voice.listening { border-color: var(–red); background: rgba(192,57,43,0.15); animation: pulse 1s infinite; }
+
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+/* Game panel specifics */
+.camera-area {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 16px;
+overflow: hidden;
+aspect-ratio: 16/9;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+margin-bottom: 12px;
+}
+
+.camera-area video {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.camera-placeholder {
+text-align: center;
+color: var(–text-dim);
+}
+
+.camera-placeholder .big { font-size: 48px; margin-bottom: 8px; }
+
+.camera-controls {
+position: absolute;
+bottom: 12px;
+right: 12px;
+display: flex;
+gap: 8px;
+}
+
+.btn-cam {
+background: rgba(15,14,12,0.8);
+border: 1px solid var(–border);
+border-radius: 10px;
+padding: 8px 14px;
+color: var(–text);
+font-size: 13px;
+cursor: pointer;
+backdrop-filter: blur(4px);
+}
+
+.btn-cam:hover { border-color: var(–accent); color: var(–accent); }
+
+/* Photo upload for game */
+.photo-row {
+display: flex;
+gap: 10px;
+margin-bottom: 12px;
+}
+
+.photo-btn {
+flex: 1;
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 14px;
+text-align: center;
+cursor: pointer;
+transition: all 0.2s;
+font-size: 13px;
+color: var(–text-dim);
+}
+
+.photo-btn:hover { border-color: var(–accent); color: var(–accent); }
+.photo-btn .icon { font-size: 24px; display: block; margin-bottom: 6px; }
+.photo-btn input { display: none; }
+
+.photo-preview {
+width: 100%;
+height: 80px;
+object-fit: cover;
+border-radius: 8px;
+margin-top: 8px;
+display: none;
+}
+
+/* Status bar */
+.status-bar {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 10px;
+padding: 10px 14px;
+font-size: 12px;
+color: var(–text-dim);
+display: flex;
+align-items: center;
+gap: 8px;
+margin-bottom: 12px;
+}
+
+.status-dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+background: var(–text-dim);
+flex-shrink: 0;
+}
+.status-dot.active { background: var(–green); box-shadow: 0 0 6px var(–green); }
+.status-dot.thinking { background: var(–accent); animation: pulse 0.8s infinite; }
+
+/* Section title */
+.section-title {
+font-family: ‘Playfair Display’, serif;
+font-size: 18px;
+color: var(–accent);
+margin-bottom: 14px;
+}
+
+/* Loaded games list */
+.games-list {
+display: flex;
+flex-direction: column;
+gap: 8px;
+margin-top: 16px;
+}
+
+.game-item {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 12px 16px;
+display: flex;
+align-items: center;
+gap: 12px;
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.game-item:hover { border-color: var(–accent); }
+.game-item.active { border-color: var(–accent); background: rgba(212,168,67,0.06); }
+.game-icon { font-size: 24px; }
+.game-name { font-size: 14px; font-weight: 500; flex: 1; }
+.game-badge {
+font-size: 11px;
+background: rgba(212,168,67,0.15);
+color: var(–accent);
+padding: 3px 8px;
+border-radius: 20px;
+}
+
+.btn-primary {
+background: var(–accent);
+color: #000;
+border: none;
+border-radius: 10px;
+padding: 10px 20px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 14px;
+font-weight: 500;
+cursor: pointer;
+transition: background 0.2s;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+}
+
+.btn-primary:hover { background: var(–accent2); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.divider {
+height: 1px;
+background: var(–border);
+margin: 20px 0;
+}
+
+.loading {
+display: inline-flex;
+gap: 4px;
+align-items: center;
+}
+.loading span {
+width: 5px; height: 5px;
+background: var(–accent);
+border-radius: 50%;
+animation: bounce 1s infinite;
+}
+.loading span:nth-child(2) { animation-delay: 0.15s; }
+.loading span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce { 0%,80%,100% { transform: scale(0.6); } 40% { transform: scale(1); } }
+
+.tts-toggle {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 13px;
+color: var(–text-dim);
+cursor: pointer;
+padding: 6px 0;
+user-select: none;
+}
+
+.toggle {
+width: 36px; height: 20px;
+background: var(–border);
+border-radius: 10px;
+position: relative;
+transition: background 0.2s;
+}
+
+.toggle::after {
+content: ‘’;
+position: absolute;
+left: 2px; top: 2px;
+width: 16px; height: 16px;
+background: #fff;
+border-radius: 50%;
+transition: left 0.2s;
+}
+
+.toggle.on { background: var(–accent); }
+.toggle.on::after { left: 18px; }
+
+@media (max-width: 600px) {
+.tab { padding: 10px 12px; font-size: 13px; }
+.photo-row { flex-direction: column; }
+}
+</style>
+
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">🎲 Társasjáték <span>AI</span></div>
+    <div class="tagline">Mesterséges intelligencia játszótársad</div>
+  </header>
+
+  <!-- API Key -->
+
+  <div class="api-bar">
+    <label>Gemini API kulcs</label>
+    <input type="password" id="apiKeyInput" placeholder="AIza..." autocomplete="off">
+    <button class="btn-save" onclick="saveApiKey()">Mentés</button>
+    <span class="api-status missing" id="apiStatus">Hiányzik</span>
+  </div>
+
+  <!-- Tabs -->
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('szabaly')">📚 Szabálytanulás</button>
+    <button class="tab" onclick="switchTab('jatek')">🎲 Játék</button>
+    <button class="tab" onclick="switchTab('konyvtar')">📖 Könyvtár</button>
+  </div>
+
+  <!-- PANEL 1: Szabálytanulás -->
+
+  <div class="panel active" id="panel-szabaly">
+    <div class="section-title">Szabálykönyv feltöltése</div>
+
+```
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('ruleFile').click()"
+     ondragover="event.preventDefault();this.classList.add('drag')"
+     ondragleave="this.classList.remove('drag')"
+     ondrop="handleDrop(event)">
+  <div class="upload-icon">📄</div>
+  <div class="upload-title">Húzd ide a szabálykönyvet</div>
+  <div class="upload-sub">PDF vagy Word formátum (.pdf, .docx)</div>
+  <input type="file" id="ruleFile" accept=".pdf,.docx,.doc" onchange="handleFileUpload(this.files[0])">
+</div>
+
+<div id="uploadedFileInfo" style="display:none"></div>
+
+<div class="divider"></div>
+
+<div class="section-title">Kérdezz a szabályokról</div>
+
+<div class="status-bar" id="learnStatus">
+  <div class="status-dot" id="learnDot"></div>
+  <span id="learnStatusText">Tölts fel egy szabálykönyvet a kezdéshez</span>
+</div>
+
+<div class="chat-area" id="learnChat">
+  <div class="empty-chat">
+    <div class="big">🤔</div>
+    Töltsd fel a szabálykönyvet, majd kérdezz bátran!<br>
+    <small style="margin-top:8px;display:block">Pl: "Mi történik ha két járvány kártya jön egyszerre?"</small>
+  </div>
+</div>
+
+<div class="input-row">
+  <textarea id="learnInput" placeholder="Kérdezz a szabályokról..." rows="1"
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendLearnMessage()}"
+    oninput="autoResize(this)"></textarea>
+  <button class="btn-voice" id="learnVoiceBtn" onclick="toggleVoice('learn')" title="Hangos kérdés">🎤</button>
+  <button class="btn-send" onclick="sendLearnMessage()" id="learnSendBtn">➤</button>
+</div>
+```
+
+  </div>
+
+  <!-- PANEL 2: Játék -->
+
+  <div class="panel" id="panel-jatek">
+    <div class="status-bar" id="gameStatus">
+      <div class="status-dot" id="gameDot"></div>
+      <span id="gameStatusText">Válassz játékot a Könyvtárból, vagy töltsd fel a szabályt</span>
+    </div>
+
+```
+<div class="photo-row">
+  <label class="photo-btn">
+    <span class="icon">🗺️</span>
+    <strong>Tábla fotója</strong><br>
+    <small>Fotózd le a játéktáblát</small>
+    <input type="file" accept="image/*" capture="environment" onchange="handleBoardPhoto(this)">
+    <img class="photo-preview" id="boardPreview">
+  </label>
+  <label class="photo-btn">
+    <span class="icon">🃏</span>
+    <strong>Kártyák fotója</strong><br>
+    <small>Az AI kezében lévő lapok</small>
+    <input type="file" accept="image/*" capture="environment" onchange="handleCardPhoto(this)">
+    <img class="photo-preview" id="cardPreview">
+  </label>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+  <label class="tts-toggle" onclick="toggleTTS()">
+    <div class="toggle" id="ttsToggle"></div>
+    Hangos AI válasz (TTS)
+  </label>
+  <button class="btn-primary" onclick="sendTurnMessage()" id="myTurnBtn" style="font-size:13px;padding:8px 16px">
+    🎲 Te jössz, AI!
+  </button>
+</div>
+
+<div class="chat-area" id="gameChat">
+  <div class="empty-chat">
+    <div class="big">🎲</div>
+    Fotózd le a táblát és a kártyákat,<br>majd mondd: <strong>"Te jössz!"</strong>
+  </div>
+</div>
+
+<div class="input-row">
+  <textarea id="gameInput" placeholder='Mit csináltál? Pl: "Átmentem Párizsba és gyógyítottam kettőt"' rows="1"
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendGameMessage()}"
+    oninput="autoResize(this)"></textarea>
+  <button class="btn-voice" id="gameVoiceBtn" onclick="toggleVoice('game')" title="Hangos bevitel">🎤</button>
+  <button class="btn-send" onclick="sendGameMessage()" id="gameSendBtn">➤</button>
+</div>
+```
+
+  </div>
+
+  <!-- PANEL 3: Könyvtár -->
+
+  <div class="panel" id="panel-konyvtar">
+    <div class="section-title">Mentett játékok</div>
+
+```
+<div id="gamesListEl">
+  <div style="color:var(--text-dim);font-size:14px;padding:20px 0;text-align:center">
+    Még nincs mentett játék.<br>
+    <small>Tölts fel szabálykönyvet a Szabálytanulás fülön!</small>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section-title">Új játék feltöltése</div>
+<div class="upload-zone" style="padding:24px" onclick="document.getElementById('ruleFile2').click()">
+  <div class="upload-icon" style="font-size:28px">➕</div>
+  <div class="upload-title" style="font-size:14px">Szabálykönyv feltöltése</div>
+  <div class="upload-sub">PDF vagy Word formátum</div>
+  <input type="file" id="ruleFile2" accept=".pdf,.docx,.doc" onchange="handleFileUpload(this.files[0])">
+</div>
+```
+
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// State
+let apiKey = localStorage.getItem('gemini_api_key') || '';
+let uploadedRuleText = '';
+let uploadedRuleName = '';
+let savedGames = JSON.parse(localStorage.getItem('saved_games') || '[]');
+let activeGame = null;
+let learnHistory = [];
+let gameHistory = [];
+let boardPhotoBase64 = null;
+let cardPhotoBase64 = null;
+let ttsEnabled = false;
+let speechRecognition = null;
+let currentVoiceTarget = null;
+
+// Init
+if (apiKey) {
+  document.getElementById('apiKeyInput').value = apiKey;
+  setApiStatus(true);
+}
+
+renderGames();
+
+function saveApiKey() {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) return;
+  localStorage.setItem('gemini_api_key', apiKey);
+  setApiStatus(true);
+}
+
+function setApiStatus(ok) {
+  const el = document.getElementById('apiStatus');
+  el.textContent = ok ? 'Aktív ✓' : 'Hiányzik';
+  el.className = 'api-status ' + (ok ? 'ok' : 'missing');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['szabaly','jatek','konyvtar'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// File upload
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFileUpload(file);
+}
+
+async function handleFileUpload(file) {
+  if (!file) return;
+
+  uploadedRuleName = file.name.replace(/\.[^.]+$/, '');
+  
+  setLearnStatus('thinking', 'Szabálykönyv feldolgozása...');
+
+  if (file.type === 'application/pdf') {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      // We'll send as base64 to Gemini
+      uploadedRuleText = '__PDF_BASE64__' + e.target.result.split(',')[1];
+      showUploadedFile(file);
+      await initRuleChat();
+    };
+    reader.readAsDataURL(file);
+  } else {
+    // docx - read as text best effort
+    uploadedRuleText = `[${file.name} feltöltve - kérlek tedd fel a kérdéseid a szabályokkal kapcsolatban]`;
+    showUploadedFile(file);
+    await initRuleChat();
+  }
+}
+
+function showUploadedFile(file) {
+  const size = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+' MB' : (file.size/1024).toFixed(0)+' KB';
+  document.getElementById('uploadedFileInfo').style.display = 'block';
+  document.getElementById('uploadedFileInfo').innerHTML = `
+    <div class="uploaded-file">
+      <div class="file-icon">📄</div>
+      <div class="file-info">
+        <div class="file-name">${file.name}</div>
+        <div class="file-size">${size}</div>
+      </div>
+      <button class="btn-remove" onclick="clearFile()">Eltávolít</button>
+    </div>
+  `;
+}
+
+function clearFile() {
+  uploadedRuleText = '';
+  uploadedRuleName = '';
+  document.getElementById('uploadedFileInfo').style.display = 'none';
+  setLearnStatus('', 'Tölts fel egy szabálykönyvet a kezdéshez');
+}
+
+async function initRuleChat() {
+  if (!apiKey) { alert('Add meg a Gemini API kulcsot!'); return; }
+  setLearnStatus('thinking', 'AI elemzi a szabálykönyvet...');
+
+  learnHistory = [];
+  const chatEl = document.getElementById('learnChat');
+  chatEl.innerHTML = '';
+
+  let prompt;
+  let isPdf = uploadedRuleText.startsWith('__PDF_BASE64__');
+
+  if (!isPdf) {
+    prompt = `A következő társasjáték szabálykönyvét kaptad meg: "${uploadedRuleName}".
+${uploadedRuleText}
+
+Köszöntsd a játékost magyarul, mondd el hogy készen állsz segíteni a szabályokban, és adj egy rövid 2-3 mondatos összefoglalót a játékról ha tudod. Légy barátságos és lelkes!`;
+  } else {
+    prompt = `Ez egy társasjáték szabálykönyve: "${uploadedRuleName}". Olvasd el és köszöntsd a játékost magyarul, mondd el hogy készen állsz a szabályokkal kapcsolatos kérdések megválaszolására. Adj rövid összefoglalót.`;
+  }
+
+  const response = await callGemini(prompt, isPdf ? uploadedRuleText.slice(16) : null);
+  
+  if (response) {
+    addMessage(chatEl, response, 'ai');
+    learnHistory.push({ role: 'user', parts: [{ text: prompt }] });
+    learnHistory.push({ role: 'model', parts: [{ text: response }] });
+
+    // Save game
+    saveGame(uploadedRuleName, uploadedRuleText);
+    setLearnStatus('active', `"${uploadedRuleName}" betöltve – kérdezz bátran!`);
+  }
+}
+
+function saveGame(name, ruleText) {
+  const existing = savedGames.findIndex(g => g.name === name);
+  const game = { name, ruleText, savedAt: new Date().toLocaleDateString('hu-HU') };
+  if (existing >= 0) savedGames[existing] = game;
+  else savedGames.push(game);
+  localStorage.setItem('saved_games', JSON.stringify(savedGames));
+  renderGames();
+}
+
+function renderGames() {
+  const el = document.getElementById('gamesListEl');
+  if (!savedGames.length) {
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:14px;padding:20px 0;text-align:center">Még nincs mentett játék.<br><small>Tölts fel szabálykönyvet a Szabálytanulás fülön!</small></div>';
+    return;
+  }
+  el.innerHTML = '<div class="games-list">' + savedGames.map((g, i) => `
+    <div class="game-item ${activeGame === i ? 'active' : ''}" onclick="selectGame(${i})">
+      <div class="game-icon">🎲</div>
+      <div class="game-name">${g.name}</div>
+      <div class="game-badge">${g.savedAt}</div>
+      <button onclick="event.stopPropagation();deleteGame(${i})" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;">🗑</button>
+    </div>
+  `).join('') + '</div>';
+}
+
+function selectGame(i) {
+  activeGame = i;
+  const game = savedGames[i];
+  uploadedRuleText = game.ruleText;
+  uploadedRuleName = game.name;
+  renderGames();
+  setGameStatus('active', `"${game.name}" aktív – fotózd le a táblát!`);
+  switchTab('jatek');
+  gameHistory = [];
+  const chatEl = document.getElementById('gameChat');
+  chatEl.innerHTML = `<div class="message ai"><div class="sender">🎲 AI Játékos</div>"${game.name}" betöltve! Fotózd le a táblát és a kártyákat, majd mondd: "Te jössz!"</div>`;
+}
+
+function deleteGame(i) {
+  savedGames.splice(i, 1);
+  localStorage.setItem('saved_games', JSON.stringify(savedGames));
+  renderGames();
+}
+
+// Learn chat
+async function sendLearnMessage() {
+  const input = document.getElementById('learnInput');
+  const text = input.value.trim();
+  if (!text || !uploadedRuleText) return;
+  if (!apiKey) { alert('Add meg a Gemini API kulcsot!'); return; }
+
+  input.value = '';
+  autoResize(input);
+
+  const chatEl = document.getElementById('learnChat');
+  addMessage(chatEl, text, 'user');
+  setLearnStatus('thinking', 'AI gondolkodik...');
+
+  const systemPrompt = `Te egy társasjáték szabály-szakértő asszisztens vagy. A játék neve: "${uploadedRuleName}". 
+Segíts a játékosnak megérteni a szabályokat. Légy tömör, egyértelmű és barátságos. Mindig magyarul válaszolj.`;
+
+  learnHistory.push({ role: 'user', parts: [{ text: text }] });
+  
+  const response = await callGeminiChat(systemPrompt, learnHistory);
+  
+  if (response) {
+    addMessage(chatEl, response, 'ai');
+    learnHistory.push({ role: 'model', parts: [{ text: response }] });
+    setLearnStatus('active', `"${uploadedRuleName}" – kész`);
+    if (ttsEnabled) speak(response);
+  }
+}
+
+// Game chat
+function handleBoardPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    boardPhotoBase64 = e.target.result.split(',')[1];
+    const prev = document.getElementById('boardPreview');
+    prev.src = e.target.result;
+    prev.style.display = 'block';
+    setGameStatus('active', 'Tábla fotó feltöltve ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleCardPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    cardPhotoBase64 = e.target.result.split(',')[1];
+    const prev = document.getElementById('cardPreview');
+    prev.src = e.target.result;
+    prev.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function sendTurnMessage() {
+  if (!apiKey) { alert('Add meg a Gemini API kulcsot!'); return; }
+  if (!uploadedRuleText) { alert('Először válassz játékot a Könyvtárból!'); return; }
+
+  const chatEl = document.getElementById('gameChat');
+  addMessage(chatEl, 'Te jössz, AI! 🎲', 'user');
+  setGameStatus('thinking', 'AI dönt...');
+
+  const systemPrompt = buildGameSystemPrompt();
+  const userMsg = 'Te jössz. Döntsd el mit csinálsz a következő körben. Pontosan írd le a lépéseidet.';
+  
+  gameHistory.push({ role: 'user', parts: buildGameParts(userMsg) });
+  
+  const response = await callGeminiChat(systemPrompt, gameHistory);
+  
+  if (response) {
+    addMessage(chatEl, response, 'ai');
+    gameHistory.push({ role: 'model', parts: [{ text: response }] });
+    setGameStatus('active', 'Várom a lépésedet...');
+    if (ttsEnabled) speak(response);
+    // Clear photos after use
+    boardPhotoBase64 = null;
+    cardPhotoBase64 = null;
+  }
+}
+
+async function sendGameMessage() {
+  const input = document.getElementById('gameInput');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!apiKey) { alert('Add meg a Gemini API kulcsot!'); return; }
+
+  input.value = '';
+  autoResize(input);
+
+  const chatEl = document.getElementById('gameChat');
+  addMessage(chatEl, text, 'user');
+  setGameStatus('thinking', 'AI válaszol...');
+
+  const systemPrompt = buildGameSystemPrompt();
+  gameHistory.push({ role: 'user', parts: buildGameParts(text) });
+  
+  const response = await callGeminiChat(systemPrompt, gameHistory);
+  
+  if (response) {
+    addMessage(chatEl, response, 'ai');
+    gameHistory.push({ role: 'model', parts: [{ text: response }] });
+    setGameStatus('active', 'Folyamatban...');
+    if (ttsEnabled) speak(response);
+    boardPhotoBase64 = null;
+    cardPhotoBase64 = null;
+  }
+}
+
+function buildGameSystemPrompt() {
+  return `Te egy ${uploadedRuleName} társasjátékban játszol AI játékosként. 
+Ismered a szabályokat tökéletesen. Kooperatív játékban stratégikusan gondolkodva segítesz megnyerni a játékot.
+Ha fotót kapsz a tábláról vagy kártyákról, elemezd azokat.
+Mindig konkrétan mondd meg mit lépsz: hova mész, mit adsz oda, mit veszel fel, stb.
+Magyarul kommunikálj, tömören és érthetően. Legfeljebb 3-4 mondatban válaszolj.`;
+}
+
+function buildGameParts(text) {
+  const parts = [];
+  if (boardPhotoBase64) {
+    parts.push({ inlineData: { mimeType: 'image/jpeg', data: boardPhotoBase64 } });
+    parts.push({ text: '[Tábla jelenlegi állása]' });
+  }
+  if (cardPhotoBase64) {
+    parts.push({ inlineData: { mimeType: 'image/jpeg', data: cardPhotoBase64 } });
+    parts.push({ text: '[Az AI kártyái]' });
+  }
+  parts.push({ text });
+  return parts;
+}
+
+// Gemini API
+async function callGemini(prompt, pdfBase64 = null) {
+  if (!apiKey) return null;
+  
+  try {
+    const parts = [];
+    if (pdfBase64) {
+      parts.push({ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } });
+    }
+    parts.push({ text: prompt });
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { maxOutputTokens: 800, temperature: 0.7 }
+      })
+    });
+    
+    const data = await res.json();
+    if (data.error) { console.error(data.error); alert('API hiba: ' + data.error.message); return null; }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (e) {
+    console.error(e);
+    alert('Hálózati hiba. Ellenőrizd az API kulcsot!');
+    return null;
+  }
+}
+
+async function callGeminiChat(systemPrompt, history) {
+  if (!apiKey) return null;
+  
+  try {
+    const systemInstruction = { parts: [{ text: systemPrompt }] };
+    
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: systemInstruction,
+        contents: history,
+        generationConfig: { maxOutputTokens: 600, temperature: 0.7 }
+      })
+    });
+    
+    const data = await res.json();
+    if (data.error) { console.error(data.error); alert('API hiba: ' + data.error.message); return null; }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
+// UI helpers
+function addMessage(container, text, role) {
+  // Remove empty state
+  const empty = container.querySelector('.empty-chat');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  div.innerHTML = `<div class="sender">${role === 'ai' ? '🎲 AI Játékos' : '👤 Te'}</div>${escHtml(text)}`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function escHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function setLearnStatus(type, text) {
+  document.getElementById('learnStatusText').textContent = text;
+  const dot = document.getElementById('learnDot');
+  dot.className = 'status-dot ' + type;
+}
+
+function setGameStatus(type, text) {
+  document.getElementById('gameStatusText').textContent = text;
+  const dot = document.getElementById('gameDot');
+  dot.className = 'status-dot ' + type;
+}
+
+// TTS
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  document.getElementById('ttsToggle').className = 'toggle ' + (ttsEnabled ? 'on' : '');
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'hu-HU';
+  utterance.rate = 1.0;
+  window.speechSynthesis.speak(utterance);
+}
+
+// Voice input
+function toggleVoice(target) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('A böngésződ nem támogatja a hangfelismerést. Próbáld Chrome-ban!');
+    return;
+  }
+
+  const btnId = target === 'learn' ? 'learnVoiceBtn' : 'gameVoiceBtn';
+  const inputId = target === 'learn' ? 'learnInput' : 'gameInput';
+  const btn = document.getElementById(btnId);
+
+  if (speechRecognition && currentVoiceTarget === target) {
+    speechRecognition.stop();
+    btn.classList.remove('listening');
+    currentVoiceTarget = null;
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  speechRecognition = new SR();
+  speechRecognition.lang = 'hu-HU';
+  speechRecognition.continuous = false;
+  speechRecognition.interimResults = false;
+
+  speechRecognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById(inputId).value = transcript;
+    autoResize(document.getElementById(inputId));
+  };
+
+  speechRecognition.onend = () => {
+    btn.classList.remove('listening');
+    currentVoiceTarget = null;
+    // Auto send if text present
+    const val = document.getElementById(inputId).value.trim();
+    if (val) {
+      if (target === 'learn') sendLearnMessage();
+      else sendGameMessage();
+    }
+  };
+
+  speechRecognition.onerror = () => {
+    btn.classList.remove('listening');
+    currentVoiceTarget = null;
+  };
+
+  speechRecognition.start();
+  btn.classList.add('listening');
+  currentVoiceTarget = target;
+}
+</script>
+
+</body>
+</html>
